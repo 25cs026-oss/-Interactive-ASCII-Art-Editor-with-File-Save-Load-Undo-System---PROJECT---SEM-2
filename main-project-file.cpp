@@ -4,7 +4,6 @@
 #include <fstream>
 #include <stack>
 #include <memory>
-#include <conio.h>   // for _getch()
 using namespace std;
 
 // ======================= Canvas Class =======================
@@ -39,11 +38,6 @@ public:
     void operator()(int r, int c, char ch) {
         ensureSize(r + 1, c + 1);
         grid[r][c] = ch;
-    }
-
-    // Operator -- for undo (prefix)
-    void operator--() {
-        // handled by UndoManager externally
     }
 
     void moveCursor(int dr, int dc) {
@@ -133,6 +127,27 @@ public:
     }
 };
 
+// ======================= Helper: Read Key =======================
+// Reads a single key from stdin, including arrow keys as escape sequences
+int readKey() {
+    char ch;
+    cin.get(ch);
+    if (ch == '\033') { // ESC sequence for arrows
+        char next1, next2;
+        if (cin.get(next1) && cin.get(next2)) {
+            if (next1 == '[') {
+                switch (next2) {
+                    case 'A': return 1000; // up
+                    case 'B': return 1001; // down
+                    case 'C': return 1002; // right
+                    case 'D': return 1003; // left
+                }
+            }
+        }
+    }
+    return ch; // normal key
+}
+
 // ======================= Main Program =======================
 int main() {
     Canvas canvas(10, 20);
@@ -140,10 +155,10 @@ int main() {
     bool running = true;
 
     while (running) {
-        system("cls"); // clear screen
-        cout << canvas; // operator<<
+        system("clear"); // use "cls" on Windows, "clear" on Linux/macOS
+        cout << canvas;
 
-        int key = _getch();
+        int key = readKey();
 
         try {
             if (key == 'q' || key == 'Q') {
@@ -153,14 +168,15 @@ int main() {
                     cout << "Undo successful!\n";
                 else
                     cout << "Nothing to undo!\n";
-                _getch(); // pause
+                cin.get(); // pause
             } else if (key == 's' || key == 'S') {
                 string filename;
                 cout << "Enter filename to save: ";
                 cin >> filename;
                 canvas.saveToFile(filename);
                 cout << "Canvas saved!\n";
-                _getch();
+                cin.ignore();
+                cin.get();
             } else if (key == 'l' || key == 'L') {
                 string filename;
                 cout << "Enter filename to load: ";
@@ -168,25 +184,26 @@ int main() {
                 undoManager.saveState(canvas);
                 canvas.loadFromFile(filename);
                 cout << "Canvas loaded!\n";
-                _getch();
-            } else if (key == 224) { // arrow keys
-                int arrow = _getch();
-                switch (arrow) {
-                    case 72: canvas.moveCursor(-1, 0); break; // up
-                    case 80: canvas.moveCursor(1, 0); break;  // down
-                    case 75: canvas.moveCursor(0, -1); break; // left
-                    case 77: canvas.moveCursor(0, 1); break;  // right
-                }
+                cin.ignore();
+                cin.get();
+            } else if (key == 1000) { // up
+                canvas.moveCursor(-1, 0);
+            } else if (key == 1001) { // down
+                canvas.moveCursor(1, 0);
+            } else if (key == 1002) { // right
+                canvas.moveCursor(0, 1);
+            } else if (key == 1003) { // left
+                canvas.moveCursor(0, -1);
             } else {
                 if (isprint(key)) {
                     undoManager.saveState(canvas);
                     unique_ptr<Tool> tool = make_unique<DrawTool>((char)key);
-                    tool->apply(canvas); // polymorphism
+                    tool->apply(canvas);
                 }
             }
         } catch (const exception& e) {
             cout << "Error: " << e.what() << endl;
-            _getch();
+            cin.get();
         }
     }
 
